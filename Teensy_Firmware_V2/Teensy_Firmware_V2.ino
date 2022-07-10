@@ -46,6 +46,8 @@ int32_t current_FR_enc;
 int32_t current_FL_enc;
 int32_t current_BR_enc;
 int32_t current_BL_enc;
+float prev_timer;
+float delta_timer;
 float lasttime = millis();
 float THETA;
 float delta_x;
@@ -127,10 +129,11 @@ void setup() {
   if ( MotorBL.getVescValues() ) {
     prev_BL_enc = MotorBL.data.tachometer;
   }
+  prev_timer = millis();
 }
 
 void loop() {
-  
+
   getVESCValue();
   batt_msg.data = analogRead(A9) / 35.2;
   Serial.println(batt_msg.data);
@@ -213,8 +216,8 @@ void Odometry() {
 
   float left_delta_metre = (((FL_delta_enc + BL_delta_enc) / 2) / Encoder_Click ) * Wheel_Circumference;
   float right_delta_metre = (((FR_delta_enc + BR_delta_enc) / 2) / Encoder_Click ) * Wheel_Circumference;
-//  float left_delta_metre = (FL_delta_enc  / Encoder_Click ) * Wheel_Circumference;
-//  float right_delta_metre = (FR_delta_enc / Encoder_Click ) * Wheel_Circumference;
+  //  float left_delta_metre = (FL_delta_enc  / Encoder_Click ) * Wheel_Circumference;
+  //  float right_delta_metre = (FR_delta_enc / Encoder_Click ) * Wheel_Circumference;
   float delta_r = (left_delta_metre + right_delta_metre) / 2.0;
   float delta_theta = (right_delta_metre - left_delta_metre) / Wheel_Distance; //angular velocity*/
 
@@ -238,25 +241,27 @@ void Odometry() {
   //    Serial.print(" theta:");
   //    Serial.println(vtheta);
 
-      Serial.print("FR");
-      Serial.print(current_FR_enc);
-      Serial.print(" BR:");
-      Serial.print(current_BR_enc);
-      Serial.print(" FL:");
-      Serial.print(current_FL_enc);
-      Serial.print(" BL");
-      Serial.println(current_BL_enc);
+  Serial.print("FR");
+  Serial.print(current_FR_enc);
+  Serial.print(" BR:");
+  Serial.print(current_BR_enc);
+  Serial.print(" FL:");
+  Serial.print(current_FL_enc);
+  Serial.print(" BL");
+  Serial.println(current_BL_enc);
   //  Serial.print("left_ms:");
   //  Serial.print(left_speed_ms);
   //  Serial.print(" |right_ms:");
   //  Serial.print(right_speed_ms);
+  delta_timer = (millis() - prev_timer) / 1000;
+  prev_timer = millis();
 
-//  Serial.print(" |x:");
-//  Serial.print(x);
-//  Serial.print(" |y:");
-//  Serial.print(y);
-//  Serial.print(" |theta:");
-//  Serial.println(THETA);
+  //  Serial.print(" |x:");
+  //  Serial.print(x);
+  //  Serial.print(" |y:");
+  //  Serial.print(y);
+  //  Serial.print(" |theta:");
+  //  Serial.println(THETA);
 
   geometry_msgs::Quaternion quaternion;
   quaternion.x = 0.0;
@@ -273,12 +278,11 @@ void Odometry() {
   odom_msg.pose.pose.position.y = y;
   odom_msg.pose.pose.position.z = 0;
   odom_msg.pose.pose.orientation = quaternion;
-  odom_msg.twist.twist.linear.x = delta_r;
-  odom_msg.twist.twist.linear.y = delta_theta;
+  odom_msg.twist.twist.linear.x =  delta_r / delta_timer;
+  odom_msg.twist.twist.linear.y = 0;
   odom_msg.twist.twist.linear.z = 0;
   odom_msg.twist.twist.angular.x = 0;
   odom_msg.twist.twist.angular.y = 0;
-  odom_msg.twist.twist.angular.z = THETA;
-
+  odom_msg.twist.twist.angular.z = delta_theta / delta_timer;
   odomPub.publish(&odom_msg);
 }
